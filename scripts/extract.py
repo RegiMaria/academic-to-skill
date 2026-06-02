@@ -83,27 +83,47 @@ PYTHON_DEPENDENCIES = {
 }
 
 # Seções típicas de artigos científicos — usadas para detectar IS_PAPER
-# Suporte a inglês e português
+# Suporte a inglês e português.
+#
+# PDFs de duas colunas extraídos com pdftotext -layout preservam o layout
+# espacial, então seções aparecem com espaços e número antes do nome:
+#   "                                                   1 Introduction"
+# Os padrões abaixo aceitam:
+#   - Espaços antes e depois (^\s* ... \s*$)
+#   - Número de seção opcional antes do nome (\d+\.?\s*)
+#   - Texto em qualquer posição na linha (não exige sozinho na linha)
 ACADEMIC_SECTION_PATTERNS = [
-    r"^\s*abstract\s*$",
-    r"^\s*resumo\s*$",
-    r"^\s*introduction\s*$",
-    r"^\s*introdução\s*$",
-    r"^\s*(materials?\s+and\s+)?methods?\s*$",
-    r"^\s*metodologia\s*$",
-    r"^\s*results?\s*$",
-    r"^\s*resultados?\s*$",
-    r"^\s*discussion\s*$",
-    r"^\s*discussão\s*$",
-    r"^\s*conclusion[s]?\s*$",
-    r"^\s*conclusão\s*$",
-    r"^\s*conclusões\s*$",
-    r"^\s*references?\s*$",
-    r"^\s*referências?\s*$",
-    r"^\s*bibliography\s*$",
-    r"^\s*bibliografia\s*$",
-    r"^\s*related\s+work[s]?\s*$",
-    r"^\s*trabalhos?\s+relacionados?\s*$",
+    # Abstract / Resumo
+    r"^\s*(\d+\.?\s*)?abstract\s*$",
+    r"^\s*(\d+\.?\s*)?resumo\s*$",
+    # Introduction / Introdução
+    r"^\s*(\d+\.?\s*)?introduction\s*$",
+    r"^\s*(\d+\.?\s*)?introdução\s*$",
+    # Methods / Metodologia
+    r"^\s*(\d+\.?\s*)?(materials?\s+and\s+)?methods?\s*$",
+    r"^\s*(\d+\.?\s*)?metodologia\s*$",
+    # Results / Resultados
+    r"^\s*(\d+\.?\s*)?results?\s*$",
+    r"^\s*(\d+\.?\s*)?resultados?\s*$",
+    # Discussion / Discussão
+    r"^\s*(\d+\.?\s*)?discussion\s*$",
+    r"^\s*(\d+\.?\s*)?discussão\s*$",
+    # Conclusion / Conclusão
+    r"^\s*(\d+\.?\s*)?conclusion[s]?\s*$",
+    r"^\s*(\d+\.?\s*)?conclusõe?s?\s*$",
+    # References / Referências
+    r"^\s*(\d+\.?\s*)?references?\s*$",
+    r"^\s*(\d+\.?\s*)?referências?\s*$",
+    r"^\s*(\d+\.?\s*)?bibliography\s*$",
+    r"^\s*(\d+\.?\s*)?bibliografia\s*$",
+    # Related Work / Trabalhos Relacionados
+    r"^\s*(\d+\.?\s*)?related\s+work[s]?\s*$",
+    r"^\s*(\d+\.?\s*)?trabalhos?\s+relacionados?\s*$",
+    # Seções comuns em artigos da Frontiers e similares
+    r"^\s*(\d+\.?\s*)?case\s+stud(y|ies)\s*$",
+    r"^\s*(\d+\.?\s*)?background\s*$",
+    r"^\s*(\d+\.?\s*)?literature\s+review\s*$",
+    r"^\s*(\d+\.?\s*)?revisão\s+d[ae]\s+literatura\s*$",
 ]
 
 
