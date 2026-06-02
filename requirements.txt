@@ -1,4 +1,7 @@
 # ─── PDF ────────────────────────────────────────────────────────────────────
+# Melhor qualidade: pdftotext (sistema, não pip)
+# sudo apt install poppler-utils   ← instalar no WSL/Linux antes de usar
+#
 # Fallback chain (text mode): pdftotext (sistema) → PyPDF2 → pdfminer.six
 PyPDF2>=3.0.0
 pdfminer.six>=20221105
