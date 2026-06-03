@@ -1,0 +1,24 @@
+# ─── PDF ────────────────────────────────────────────────────────────────────
+# Melhor qualidade: pdftotext (sistema, não pip)
+# sudo apt install poppler-utils   ← instalar no WSL/Linux antes de usar
+#
+# Fallback chain (text mode): pdftotext (sistema) → PyPDF2 → pdfminer.six
+PyPDF2>=3.0.0
+pdfminer.six>=20221105
+
+# Extração técnica (tabelas, código, fórmulas — modo "technical")
+# Pesado (~500 MB). Instale apenas se precisar de extração layout-aware.
+# docling>=2.0.0
+
+# ─── EPUB ───────────────────────────────────────────────────────────────────
+ebooklib>=0.18
+beautifulsoup4>=4.12.0
+
+# ─── DOCX ───────────────────────────────────────────────────────────────────
+python-docx>=1.1.0
+
+# ─── RTF ────────────────────────────────────────────────────────────────────
+striprtf>=0.0.26
+
+# ─── HTML ───────────────────────────────────────────────────────────────────
+# beautifulsoup4 já cobre HTML (listado acima em EPUB)
