@@ -2,17 +2,22 @@
 """
 academic-to-skill — Extrator de texto para documentos acadêmicos e técnicos.
 
-Este script é chamado automaticamente pelo SKILL.md durante a conversão.
-Você não precisa executá-lo manualmente — o Claude Code cuida disso.
+Este script faz UMA coisa: extrai o texto bruto do documento e salva em arquivo.
+O Claude Code (SKILL.md) cuida de todo o resto — estrutura, seções, arquivos
+acadêmicos extras, detecção de artigo científico, etc.
 
 Ordem de tentativa para PDF:
   1. pdftotext (poppler-utils) — melhor qualidade, preserva layout
-  2. PyPDF2 — biblioteca Python comum, sem dependências externas
+     Instalar: sudo apt install poppler-utils
+  2. PyPDF2 — biblioteca Python, sem dependências externas
+     Instalar: pip3 install PyPDF2
   3. pdfminer.six — fallback mais completo
+     Instalar: pip3 install pdfminer.six
 
 Ordem de tentativa para EPUB:
   1. ebooklib + BeautifulSoup4 — melhor qualidade
-  2. zipfile + html.parser — fallback usando apenas a biblioteca padrão (sem instalar nada)
+     Instalar: pip3 install ebooklib beautifulsoup4
+  2. zipfile + html.parser — fallback usando apenas a biblioteca padrão
 
 Outros formatos suportados:
   - Texto simples / Markdown / reStructuredText / AsciiDoc — leitura direta
@@ -24,7 +29,6 @@ Outros formatos suportados:
 Arquivos gerados:
   <tempdir>/book_skill_work/full_text.txt  — texto completo extraído
   <tempdir>/book_skill_work/metadata.json  — estatísticas e metadados
-                                             (inclui is_academic_paper para o SKILL.md)
 
 Variável de ambiente:
   BOOK_SKILL_WORKDIR — sobrescreve o diretório de saída padrão
@@ -44,8 +48,8 @@ import zipfile
 from pathlib import Path
 
 # ─── Diretórios de saída ────────────────────────────────────────────────────
-# Por padrão usa a pasta temporária do sistema. Pode ser sobrescrito pela
-# variável de ambiente BOOK_SKILL_WORKDIR.
+# Por padrão usa a pasta temporária do sistema.
+# Pode ser sobrescrito pela variável de ambiente BOOK_SKILL_WORKDIR.
 OUTPUT_DIR = Path(
     os.environ.get(
         "BOOK_SKILL_WORKDIR",
@@ -56,10 +60,10 @@ OUTPUT_TEXT = OUTPUT_DIR / "full_text.txt"   # Texto extraído do documento
 OUTPUT_META = OUTPUT_DIR / "metadata.json"   # Estatísticas e metadados
 
 # ─── Constantes ─────────────────────────────────────────────────────────────
-# Estimativa de tokens: em média 0,75 palavras por token (aproximação para inglês/português)
+# Estimativa de tokens: ~0,75 palavras por token (aproximação para inglês/português)
 WORDS_PER_TOKEN = 0.75
 
-# Extensões de arquivo suportadas por categoria
+# Extensões suportadas por categoria
 TEXT_EXTENSIONS = {".txt", ".text", ".md", ".markdown", ".rst", ".adoc", ".asciidoc"}
 HTML_EXTENSIONS = {".html", ".htm", ".xhtml"}
 CALIBRE_EBOOK_EXTENSIONS = {".mobi", ".azw", ".azw3"}
@@ -70,8 +74,7 @@ SUPPORTED_EXTENSIONS = {
     *CALIBRE_EBOOK_EXTENSIONS,
 }
 
-# Mapeamento: nome do módulo Python → nome do pacote pip
-# Usado para sugerir o comando de instalação correto ao usuário
+# Mapeamento: módulo Python → pacote pip para sugestões de instalação
 PYTHON_DEPENDENCIES = {
     "docling": "docling",
     "PyPDF2": "PyPDF2",
@@ -82,65 +85,16 @@ PYTHON_DEPENDENCIES = {
     "striprtf": "striprtf",
 }
 
-# Seções típicas de artigos científicos — usadas para detectar IS_PAPER
-# Suporte a inglês e português.
-#
-# PDFs de duas colunas extraídos com pdftotext -layout preservam o layout
-# espacial, então seções aparecem com espaços e número antes do nome:
-#   "                                                   1 Introduction"
-# Os padrões abaixo aceitam:
-#   - Espaços antes e depois (^\s* ... \s*$)
-#   - Número de seção opcional antes do nome (\d+\.?\s*)
-#   - Texto em qualquer posição na linha (não exige sozinho na linha)
-ACADEMIC_SECTION_PATTERNS = [
-    # Abstract / Resumo
-    r"^\s*(\d+\.?\s*)?abstract\s*$",
-    r"^\s*(\d+\.?\s*)?resumo\s*$",
-    # Introduction / Introdução
-    r"^\s*(\d+\.?\s*)?introduction\s*$",
-    r"^\s*(\d+\.?\s*)?introdução\s*$",
-    # Methods / Metodologia
-    r"^\s*(\d+\.?\s*)?(materials?\s+and\s+)?methods?\s*$",
-    r"^\s*(\d+\.?\s*)?metodologia\s*$",
-    # Results / Resultados
-    r"^\s*(\d+\.?\s*)?results?\s*$",
-    r"^\s*(\d+\.?\s*)?resultados?\s*$",
-    # Discussion / Discussão
-    r"^\s*(\d+\.?\s*)?discussion\s*$",
-    r"^\s*(\d+\.?\s*)?discussão\s*$",
-    # Conclusion / Conclusão
-    r"^\s*(\d+\.?\s*)?conclusion[s]?\s*$",
-    r"^\s*(\d+\.?\s*)?conclusõe?s?\s*$",
-    # References / Referências
-    r"^\s*(\d+\.?\s*)?references?\s*$",
-    r"^\s*(\d+\.?\s*)?referências?\s*$",
-    r"^\s*(\d+\.?\s*)?bibliography\s*$",
-    r"^\s*(\d+\.?\s*)?bibliografia\s*$",
-    # Related Work / Trabalhos Relacionados
-    r"^\s*(\d+\.?\s*)?related\s+work[s]?\s*$",
-    r"^\s*(\d+\.?\s*)?trabalhos?\s+relacionados?\s*$",
-    # Seções comuns em artigos da Frontiers e similares
-    r"^\s*(\d+\.?\s*)?case\s+stud(y|ies)\s*$",
-    r"^\s*(\d+\.?\s*)?background\s*$",
-    r"^\s*(\d+\.?\s*)?literature\s+review\s*$",
-    r"^\s*(\d+\.?\s*)?revisão\s+d[ae]\s+literatura\s*$",
-]
-
 
 # ─── Funções utilitárias ─────────────────────────────────────────────────────
 
 def estimate_tokens(text: str) -> int:
-    """Estima o número de tokens de um texto.
-    
-    Usa a aproximação de 0,75 palavras por token, que funciona razoavelmente
-    bem para inglês e português. Para textos técnicos com muitos símbolos,
-    o número real pode ser maior.
-    """
+    """Estima o número de tokens usando ~0,75 palavras por token."""
     return int(len(text.split()) / WORDS_PER_TOKEN)
 
 
 def supported_formats_message() -> str:
-    """Retorna uma string listando todos os formatos suportados."""
+    """Lista todos os formatos suportados."""
     return ", ".join(sorted(SUPPORTED_EXTENSIONS))
 
 
@@ -150,11 +104,7 @@ def python_module_available(module_name: str) -> bool:
 
 
 def missing_python_packages(module_names: list[str]) -> list[str]:
-    """Retorna a lista de pacotes pip que precisam ser instalados.
-    
-    Recebe nomes de módulos Python e retorna os nomes dos pacotes pip
-    correspondentes que ainda não estão instalados.
-    """
+    """Retorna pacotes pip que precisam ser instalados."""
     missing = []
     for module_name in module_names:
         if not python_module_available(module_name):
@@ -163,26 +113,20 @@ def missing_python_packages(module_names: list[str]) -> list[str]:
 
 
 def install_python_packages(packages: list[str]) -> bool:
-    """Instala pacotes pip usando o mesmo Python que está executando este script.
-    
-    Usa sys.executable para garantir que os pacotes sejam instalados no
-    ambiente Python correto (importante quando há múltiplos ambientes virtuais).
-    """
+    """Instala pacotes pip no ambiente Python atual."""
     if not packages:
         return True
-
     print(f"Installing missing Python package(s): {', '.join(packages)}")
     try:
         result = subprocess.run(
             [sys.executable, "-m", "pip", "install", *packages],
             text=True,
-            timeout=600,  # 10 minutos de timeout para pacotes grandes como docling
+            timeout=600,
         )
     except Exception as exc:
         print(f"Package installation failed: {exc}", file=sys.stderr)
         return False
-
-    # Limpa o cache de módulos para que os recém-instalados sejam encontrados
+    # Limpa o cache para que os pacotes recém-instalados sejam encontrados
     importlib.invalidate_caches()
     return result.returncode == 0
 
@@ -190,14 +134,8 @@ def install_python_packages(packages: list[str]) -> bool:
 def normalize_install_mode(argv: list[str]) -> str:
     """Determina o modo de instalação de dependências.
     
-    Prioridade (da maior para a menor):
-    1. Flag --no-install-missing na linha de comando → sempre "no"
-    2. Flag --install-missing [valor] na linha de comando
-    3. Variável de ambiente BOOK_SKILL_INSTALL_MISSING
-    4. Padrão: "ask" (pergunta ao usuário interativamente)
-    
-    Valores válidos: "yes" (instala sem perguntar), "no" (usa fallback),
-    "ask" (pergunta se o terminal for interativo)
+    Prioridade: flag na linha de comando > variável de ambiente > padrão "ask"
+    Valores válidos: "yes" (instala sem perguntar), "no" (usa fallback), "ask"
     """
     mode = os.environ.get("BOOK_SKILL_INSTALL_MISSING", "ask").lower()
     if "--no-install-missing" in argv:
@@ -224,16 +162,9 @@ def offer_dependency_install(
 ) -> None:
     """Oferece instalar dependências opcionais quando estão faltando.
     
-    Se o pacote não estiver instalado:
-    - No modo "yes": instala automaticamente sem perguntar
-    - No modo "ask" com terminal interativo: pergunta ao usuário
-    - No modo "no" ou sem terminal: usa o fallback silenciosamente
-    
-    Args:
-        feature: Nome legível da funcionalidade que precisa do pacote
-        module_names: Lista de módulos Python necessários
-        fallback: Descrição do método alternativo (None se não houver)
-        install_mode: "yes", "no" ou "ask"
+    - modo "yes": instala automaticamente sem perguntar
+    - modo "ask" com terminal interativo: pergunta ao usuário
+    - modo "no" ou sem terminal: usa o fallback silenciosamente
     """
     packages = missing_python_packages(module_names)
     if not packages:
@@ -277,12 +208,8 @@ def offer_dependency_install(
 
 
 def prepare_dependencies(ext: str, extraction_mode: str, install_mode: str) -> None:
-    """Verifica e oferece instalar dependências necessárias para o formato do arquivo.
-    
-    Chamada antes da extração para garantir que as melhores ferramentas
-    estejam disponíveis. Cada formato tem sua cadeia de fallbacks.
-    """
-    # PDF técnico: tenta Docling primeiro (preserva tabelas e fórmulas)
+    """Verifica e oferece instalar dependências para o formato do arquivo."""
+    # PDF técnico: Docling preserva tabelas e fórmulas como markdown
     if ext == ".pdf" and extraction_mode == "technical":
         offer_dependency_install(
             feature="Technical PDF extraction",
@@ -290,7 +217,6 @@ def prepare_dependencies(ext: str, extraction_mode: str, install_mode: str) -> N
             fallback="the PDF text fallback chain",
             install_mode=install_mode,
         )
-
     # PDF texto: tenta PyPDF2 e pdfminer se pdftotext não estiver no sistema
     if ext == ".pdf" and not shutil.which("pdftotext"):
         offer_dependency_install(
@@ -299,7 +225,6 @@ def prepare_dependencies(ext: str, extraction_mode: str, install_mode: str) -> N
             fallback="any installed Python PDF parser; extraction fails if none are available",
             install_mode=install_mode,
         )
-
     # EPUB: ebooklib + bs4 para melhor qualidade; zipfile como fallback
     if ext == ".epub":
         offer_dependency_install(
@@ -308,8 +233,7 @@ def prepare_dependencies(ext: str, extraction_mode: str, install_mode: str) -> N
             fallback="a stdlib ZIP/HTML parser",
             install_mode=install_mode,
         )
-
-    # HTML: beautifulsoup4 para melhor limpeza; html.parser da stdlib como fallback
+    # HTML: beautifulsoup4 para melhor limpeza; html.parser como fallback
     if ext in HTML_EXTENSIONS:
         offer_dependency_install(
             feature="HTML extraction",
@@ -317,8 +241,7 @@ def prepare_dependencies(ext: str, extraction_mode: str, install_mode: str) -> N
             fallback="a stdlib HTML parser",
             install_mode=install_mode,
         )
-
-    # DOCX: python-docx para extração completa (inclui tabelas); zipfile como fallback
+    # DOCX: python-docx para extração completa incluindo tabelas
     if ext == ".docx":
         offer_dependency_install(
             feature="DOCX extraction",
@@ -326,7 +249,6 @@ def prepare_dependencies(ext: str, extraction_mode: str, install_mode: str) -> N
             fallback="a stdlib ZIP/XML parser",
             install_mode=install_mode,
         )
-
     # RTF: striprtf para limpeza correta; regex básico como fallback
     if ext == ".rtf":
         offer_dependency_install(
@@ -340,13 +262,9 @@ def prepare_dependencies(ext: str, extraction_mode: str, install_mode: str) -> N
 # ─── Leitores de arquivo ─────────────────────────────────────────────────────
 
 def read_text_file(path: str) -> str | None:
-    """Lê um arquivo de texto tentando diferentes encodings.
+    """Lê arquivo de texto tentando múltiplos encodings.
     
-    Tenta encodings em ordem de probabilidade:
-    - utf-8-sig: UTF-8 com BOM (comum em arquivos gerados no Windows)
-    - utf-8: encoding padrão moderno
-    - cp1252: Windows Latin-1 (comum em documentos antigos em português)
-    - latin-1: ISO 8859-1, aceita qualquer byte de 8 bits como fallback
+    Ordem: utf-8-sig (BOM), utf-8, cp1252 (Windows PT), latin-1 (fallback universal)
     """
     for encoding in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
         try:
@@ -361,16 +279,10 @@ def read_text_file(path: str) -> str | None:
 # ─── Extratores HTML ─────────────────────────────────────────────────────────
 
 def extract_html_content(raw_html: str) -> str:
-    """Extrai texto limpo de uma string HTML.
-    
-    Remove scripts, estilos e tags de cabeçalho, mantendo apenas o conteúdo
-    textual. Usa BeautifulSoup4 se disponível (melhor qualidade), senão
-    usa o parser HTML da stdlib.
-    """
+    """Extrai texto limpo de HTML — usa BeautifulSoup4 se disponível."""
     try:
         from bs4 import BeautifulSoup
         soup = BeautifulSoup(raw_html, "html.parser")
-        # Remove elementos que não contêm conteúdo útil
         for element in soup(["script", "style", "head"]):
             element.decompose()
         return soup.get_text(separator="\n")
@@ -382,7 +294,7 @@ def extract_html_content(raw_html: str) -> str:
 
 
 def extract_html_file(path: str) -> str | None:
-    """Lê um arquivo HTML e extrai o texto limpo."""
+    """Lê arquivo HTML e extrai texto limpo."""
     raw = read_text_file(path)
     if raw is None:
         return None
@@ -392,16 +304,12 @@ def extract_html_file(path: str) -> str | None:
 # ─── Extratores DOCX ─────────────────────────────────────────────────────────
 
 def extract_docx_with_python_docx(docx_path: str) -> str | None:
-    """Extrai texto de DOCX usando python-docx (melhor qualidade).
-    
-    Extrai parágrafos e tabelas. Tabelas são convertidas para linhas
-    separadas por tabulação, o que preserva a estrutura de forma legível.
-    """
+    """Extrai texto de DOCX usando python-docx — inclui parágrafos e tabelas."""
     try:
         import docx
         document = docx.Document(docx_path)
         parts = [paragraph.text for paragraph in document.paragraphs if paragraph.text]
-        # Extrai conteúdo de tabelas (relevante para artigos com tabelas de resultados)
+        # Extrai tabelas — importante para artigos com tabelas de resultados
         for table in document.tables:
             for row in table.rows:
                 cells = [cell.text.strip() for cell in row.cells]
@@ -415,19 +323,13 @@ def extract_docx_with_python_docx(docx_path: str) -> str | None:
 
 
 def extract_docx_with_zipfile(docx_path: str) -> str | None:
-    """Extrai texto de DOCX sem dependências externas (fallback).
-    
-    Um arquivo DOCX é na verdade um ZIP contendo XMLs. Este método
-    lê o XML principal e extrai o texto dos parágrafos diretamente.
-    Não extrai tabelas — use python-docx para melhor qualidade.
-    """
+    """Extrai texto de DOCX sem dependências — lê XML diretamente do ZIP."""
     try:
         import xml.etree.ElementTree as ET
-
         with zipfile.ZipFile(docx_path) as zf:
             xml_bytes = zf.read("word/document.xml")
         root = ET.fromstring(xml_bytes)
-        # Namespace padrão do formato OOXML (usado pelo Word)
+        # Namespace padrão do formato OOXML
         namespace = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
         parts: list[str] = []
         for paragraph in root.iter(f"{namespace}p"):
@@ -440,23 +342,18 @@ def extract_docx_with_zipfile(docx_path: str) -> str | None:
 
 
 def extract_docx(docx_path: str) -> tuple[str, str]:
-    """Extrai texto de um arquivo DOCX, tentando métodos em ordem de qualidade.
-    
-    Retorna uma tupla (texto, método_usado).
-    """
+    """Extrai texto de DOCX tentando métodos em ordem de qualidade."""
     print("Trying python-docx...", end=" ", flush=True)
     text = extract_docx_with_python_docx(docx_path)
     if text and text.strip():
         print("OK")
         return text, "python-docx"
-
     print("not available")
     print("Trying stdlib DOCX parser...", end=" ", flush=True)
     text = extract_docx_with_zipfile(docx_path)
     if text and text.strip():
         print("OK")
         return text, "zipfile-docx"
-
     print("FAILED")
     print(
         "\nERROR: Could not extract text from DOCX.\n"
@@ -470,31 +367,21 @@ def extract_docx(docx_path: str) -> tuple[str, str]:
 # ─── Extratores RTF ──────────────────────────────────────────────────────────
 
 def strip_rtf_fallback(raw: str) -> str:
-    """Remove formatação RTF usando regex (fallback sem dependências).
-    
-    RTF usa sequências de escape como \\par (parágrafo) e \\'XX (caractere hex).
-    Este método remove essas sequências de forma básica — para melhor qualidade,
-    use striprtf.
-    """
-    raw = re.sub(r"\\'[0-9a-fA-F]{2}", " ", raw)   # Remove escapes de caracteres
-    raw = re.sub(r"\\par[d]?", "\n", raw)            # Converte quebras de parágrafo
-    raw = re.sub(r"\\tab", "\t", raw)                # Converte tabulações
-    raw = re.sub(r"\\[a-zA-Z]+-?\d* ?", "", raw)    # Remove outros comandos RTF
-    raw = raw.replace("{", "").replace("}", "")       # Remove delimitadores de grupo
+    """Remove formatação RTF com regex — fallback sem dependências."""
+    raw = re.sub(r"\\'[0-9a-fA-F]{2}", " ", raw)
+    raw = re.sub(r"\\par[d]?", "\n", raw)
+    raw = re.sub(r"\\tab", "\t", raw)
+    raw = re.sub(r"\\[a-zA-Z]+-?\d* ?", "", raw)
+    raw = raw.replace("{", "").replace("}", "")
     return html.unescape(raw)
 
 
 def extract_rtf(rtf_path: str) -> tuple[str, str]:
-    """Extrai texto de um arquivo RTF.
-    
-    Tenta striprtf primeiro (melhor qualidade), depois regex como fallback.
-    Retorna uma tupla (texto, método_usado).
-    """
+    """Extrai texto de RTF — tenta striprtf, depois regex como fallback."""
     raw = read_text_file(rtf_path)
     if raw is None:
         print("ERROR: Could not read RTF file", file=sys.stderr)
         sys.exit(1)
-
     try:
         from striprtf.striprtf import rtf_to_text
         text = rtf_to_text(raw)
@@ -504,27 +391,24 @@ def extract_rtf(rtf_path: str) -> tuple[str, str]:
         pass
     except Exception:
         pass
-
-    # Fallback: limpeza básica com regex
     return strip_rtf_fallback(raw), "rtf-regex"
 
 
-# ─── Extrator via Calibre (MOBI/AZW) ─────────────────────────────────────────
+# ─── Extrator Calibre (MOBI/AZW) ─────────────────────────────────────────────
 
 def extract_with_ebook_convert(input_path: str) -> str | None:
-    """Converte e extrai texto de ebooks usando o Calibre.
+    """Converte ebook com Calibre — suporta MOBI, AZW, AZW3.
     
-    O Calibre é uma aplicação externa (não instalada via pip) que suporta
-    muitos formatos proprietários como MOBI e AZW da Amazon.
-    Retorna None se o Calibre não estiver instalado.
+    Calibre é instalado como aplicação, não via pip.
+    Download: https://calibre-ebook.com/download
     """
     if not shutil.which("ebook-convert"):
-        return None  # Calibre não está instalado ou não está no PATH
+        return None
     output_path = OUTPUT_DIR / "ebook-convert-output.txt"
     try:
         result = subprocess.run(
             ["ebook-convert", input_path, str(output_path)],
-            capture_output=True, text=True, timeout=300  # 5 minutos para livros grandes
+            capture_output=True, text=True, timeout=300
         )
         if result.returncode == 0 and output_path.exists():
             text = output_path.read_text(encoding="utf-8", errors="replace")
@@ -538,18 +422,17 @@ def extract_with_ebook_convert(input_path: str) -> str | None:
 # ─── Extratores PDF ──────────────────────────────────────────────────────────
 
 def extract_with_pdftotext(pdf_path: str) -> str | None:
-    """Extrai texto de PDF usando pdftotext do pacote poppler-utils.
+    """Extrai texto com pdftotext — melhor qualidade para PDFs de texto.
     
-    É a opção mais rápida e de melhor qualidade para PDFs de texto.
-    A flag -layout preserva o layout aproximado do documento.
-    
-    Instalação: sudo apt install poppler-utils (Linux/WSL)
+    A flag -layout preserva o layout aproximado da página.
+    Importante para PDFs de duas colunas (como artigos da Frontiers, IEEE).
+    Instalar: sudo apt install poppler-utils
     """
     if not shutil.which("pdftotext"):
-        return None  # pdftotext não está instalado
+        return None
     try:
         result = subprocess.run(
-            ["pdftotext", "-layout", pdf_path, "-"],  # "-" envia saída para stdout
+            ["pdftotext", "-layout", pdf_path, "-"],
             capture_output=True, text=True, timeout=120
         )
         if result.returncode == 0 and result.stdout.strip():
@@ -560,13 +443,9 @@ def extract_with_pdftotext(pdf_path: str) -> str | None:
 
 
 def extract_with_pypdf2(pdf_path: str) -> str | None:
-    """Extrai texto de PDF usando PyPDF2.
+    """Extrai texto com PyPDF2 — fallback quando pdftotext não está disponível.
     
-    Boa opção quando pdftotext não está disponível. Funciona bem para PDFs
-    com texto selecionável, mas pode ter problemas com PDFs escaneados
-    ou com layouts complexos de múltiplas colunas.
-    
-    Instalação: pip3 install PyPDF2
+    Instalar: pip3 install PyPDF2
     """
     try:
         import PyPDF2
@@ -577,7 +456,7 @@ def extract_with_pypdf2(pdf_path: str) -> str | None:
                 try:
                     text_parts.append(page.extract_text() or "")
                 except Exception:
-                    text_parts.append("")  # Página com erro é incluída como vazia
+                    text_parts.append("")
         return "\n".join(text_parts)
     except ImportError:
         return None
@@ -586,12 +465,9 @@ def extract_with_pypdf2(pdf_path: str) -> str | None:
 
 
 def extract_with_pdfminer(pdf_path: str) -> str | None:
-    """Extrai texto de PDF usando pdfminer.six.
+    """Extrai texto com pdfminer.six — mais robusto para layouts complexos.
     
-    O mais completo dos extratores Python para PDF — lida melhor com
-    layouts complexos. É mais lento que PyPDF2 mas mais robusto.
-    
-    Instalação: pip3 install pdfminer.six
+    Instalar: pip3 install pdfminer.six
     """
     try:
         from pdfminer.high_level import extract_text
@@ -603,16 +479,12 @@ def extract_with_pdfminer(pdf_path: str) -> str | None:
 
 
 def extract_with_docling(pdf_path: str) -> str | None:
-    """Extrai texto de PDF com reconhecimento de layout usando Docling.
+    """Extrai PDF com reconhecimento de layout usando Docling.
     
-    A melhor opção para documentos técnicos com tabelas, fórmulas e figuras.
-    O Docling analisa o layout da página e converte tabelas para markdown,
-    preservando a estrutura que seria perdida por extratores de texto simples.
-    
-    Desvantagens: pacote pesado (~500 MB), leva ~1,5s por página.
-    Use apenas no modo "technical" para artigos com tabelas de resultados.
-    
-    Instalação: pip3 install docling
+    Melhor opção para PDFs técnicos com tabelas e fórmulas.
+    Converte tabelas para markdown preservando a estrutura.
+    Desvantagem: pacote pesado (~500MB), leva ~1,5s por página.
+    Instalar: pip3 install docling
     """
     try:
         from docling.document_converter import DocumentConverter
@@ -621,8 +493,8 @@ def extract_with_docling(pdf_path: str) -> str | None:
         from docling.document_converter import PdfFormatOption
 
         pipeline_options = PdfPipelineOptions()
-        pipeline_options.do_ocr = False           # Desativa OCR (mais rápido)
-        pipeline_options.do_table_structure = True # Ativa detecção de tabelas
+        pipeline_options.do_ocr = False            # Desativa OCR (mais rápido)
+        pipeline_options.do_table_structure = True  # Ativa detecção de tabelas
 
         converter = DocumentConverter(
             format_options={
@@ -630,7 +502,7 @@ def extract_with_docling(pdf_path: str) -> str | None:
             }
         )
         result = converter.convert(pdf_path)
-        return result.document.export_to_markdown()  # Tabelas viram markdown
+        return result.document.export_to_markdown()
     except ImportError:
         return None
     except Exception:
@@ -640,13 +512,7 @@ def extract_with_docling(pdf_path: str) -> str | None:
 # ─── Extratores EPUB ─────────────────────────────────────────────────────────
 
 def extract_with_ebooklib(epub_path: str) -> str | None:
-    """Extrai texto de EPUB usando ebooklib + BeautifulSoup4 (melhor qualidade).
-    
-    Respeita a ordem de leitura definida no arquivo OPF do EPUB e
-    usa BeautifulSoup para limpar o HTML de cada capítulo.
-    
-    Instalação: pip3 install ebooklib beautifulsoup4
-    """
+    """Extrai EPUB com ebooklib + BeautifulSoup4 — respeita ordem de leitura."""
     try:
         import ebooklib
         from ebooklib import epub
@@ -654,7 +520,7 @@ def extract_with_ebooklib(epub_path: str) -> str | None:
 
         book = epub.read_epub(epub_path)
         parts = []
-        # Itera apenas sobre documentos (capítulos), não imagens ou CSS
+        # Itera apenas documentos (capítulos), não imagens ou CSS
         for item in book.get_items_of_type(ebooklib.ITEM_DOCUMENT):
             soup = BeautifulSoup(item.get_content(), "html.parser")
             parts.append(soup.get_text(separator="\n"))
@@ -666,11 +532,9 @@ def extract_with_ebooklib(epub_path: str) -> str | None:
 
 
 class _HTMLTextExtractor(html.parser.HTMLParser):
-    """Conversor minimalista de HTML para texto simples usando apenas a stdlib.
+    """Conversor minimalista HTML → texto usando apenas a stdlib.
     
     Usado como fallback quando BeautifulSoup4 não está instalado.
-    Remove scripts, estilos e cabeçalhos, e insere quebras de linha
-    nos elementos de bloco (p, br, h1-h6, li, div).
     """
 
     SKIP_TAGS = {"script", "style", "head"}
@@ -678,7 +542,7 @@ class _HTMLTextExtractor(html.parser.HTMLParser):
     def __init__(self):
         super().__init__()
         self._parts: list[str] = []
-        self._skip_depth = 0           # Profundidade de tags ignoradas (para aninhamento)
+        self._skip_depth = 0
         self._current_skip: str | None = None
 
     def handle_starttag(self, tag, attrs):
@@ -693,7 +557,6 @@ class _HTMLTextExtractor(html.parser.HTMLParser):
             self._skip_depth -= 1
 
     def handle_data(self, data):
-        # Só adiciona texto se não estiver dentro de uma tag ignorada
         if not self._skip_depth:
             self._parts.append(data)
 
@@ -702,26 +565,17 @@ class _HTMLTextExtractor(html.parser.HTMLParser):
 
 
 def extract_with_zipfile(epub_path: str) -> str | None:
-    """Extrai texto de EPUB sem dependências externas (fallback).
-    
-    Um EPUB é um arquivo ZIP contendo HTML. Este método:
-    1. Lê o arquivo OPF para descobrir a ordem de leitura dos capítulos
-    2. Extrai o HTML de cada capítulo na ordem correta
-    3. Converte o HTML para texto usando o parser minimalista
-    
-    Não precisa de ebooklib nem BeautifulSoup4.
-    """
+    """Extrai EPUB sem dependências — lê HTML dos arquivos ZIP diretamente."""
     try:
         with zipfile.ZipFile(epub_path) as zf:
             names = zf.namelist()
-            # Lê o arquivo OPF para obter a ordem de leitura (spine)
+            # Lê o OPF para obter a ordem de leitura (spine)
             spine_order: list[str] = []
             opf_files = [n for n in names if n.endswith(".opf")]
             if opf_files:
                 opf_text = zf.read(opf_files[0]).decode("utf-8", errors="replace")
                 spine_order = re.findall(r'href=["\']([^"\']+\.(?:xhtml|html))["\']', opf_text)
 
-            # Usa a ordem do spine se disponível, senão ordena alfabeticamente
             html_files = spine_order or sorted(
                 n for n in names if n.endswith((".html", ".xhtml"))
             )
@@ -736,30 +590,25 @@ def extract_with_zipfile(epub_path: str) -> str | None:
                     parser.feed(raw)
                     parts.append(parser.get_text())
                 except Exception:
-                    continue  # Pula capítulos com erro e continua
+                    continue
             return "\n\n".join(parts) if parts else None
     except Exception:
         return None
 
 
 def extract_epub(epub_path: str) -> tuple[str, str]:
-    """Extrai texto de EPUB tentando métodos em ordem de qualidade.
-    
-    Retorna uma tupla (texto, método_usado).
-    """
+    """Extrai EPUB tentando métodos em ordem de qualidade."""
     print("Trying ebooklib + BeautifulSoup4...", end=" ", flush=True)
     text = extract_with_ebooklib(epub_path)
     if text and text.strip():
         print("OK")
         return text, "ebooklib"
-
     print("not available")
     print("Trying stdlib zipfile parser...", end=" ", flush=True)
     text = extract_with_zipfile(epub_path)
     if text and text.strip():
         print("OK")
         return text, "zipfile"
-
     print("FAILED")
     print(
         "\nERROR: Could not extract text from EPUB.\n"
@@ -773,29 +622,20 @@ def extract_epub(epub_path: str) -> tuple[str, str]:
 # ─── Contadores ──────────────────────────────────────────────────────────────
 
 def count_epub_chapters(epub_path: str) -> int:
-    """Conta o número de itens no spine do EPUB (aproximação de capítulos).
-    
-    Não requer dependências externas — lê diretamente o arquivo OPF dentro do ZIP.
-    """
+    """Conta itens no spine do EPUB — aproximação do número de capítulos."""
     try:
         with zipfile.ZipFile(epub_path) as zf:
             opf_files = [n for n in zf.namelist() if n.endswith(".opf")]
             if not opf_files:
                 return 0
             opf_text = zf.read(opf_files[0]).decode("utf-8", errors="replace")
-            # Conta elementos <itemref> no spine, que representam capítulos na ordem de leitura
             return len(re.findall(r'<itemref\b', opf_text))
     except Exception:
         return 0
 
 
 def count_pages(pdf_path: str) -> int:
-    """Conta o número de páginas de um PDF.
-    
-    Tenta pdfinfo primeiro (mais rápido), depois PyPDF2 como fallback.
-    Retorna 0 se não conseguir contar.
-    """
-    # pdfinfo é o método mais rápido — faz parte do pacote poppler-utils
+    """Conta páginas de PDF — tenta pdfinfo primeiro, depois PyPDF2."""
     if shutil.which("pdfinfo"):
         try:
             result = subprocess.run(
@@ -806,7 +646,6 @@ def count_pages(pdf_path: str) -> int:
                     return int(line.split(":")[1].strip())
         except Exception:
             pass
-    # Fallback: usa PyPDF2 para contar páginas
     try:
         import PyPDF2
         with open(pdf_path, "rb") as f:
@@ -818,32 +657,23 @@ def count_pages(pdf_path: str) -> int:
 # ─── Detecção de estrutura ───────────────────────────────────────────────────
 
 def detect_structure(text: str) -> dict:
-    """Analisa a estrutura do documento e detecta se é um artigo científico.
-    
-    Esta função alimenta duas funcionalidades importantes do SKILL.md:
-    
-    1. chapters_detected / has_toc: ajudam o Claude a mapear seções do documento
-    
-    2. is_academic_paper: quando True, o SKILL.md ativa o Passo 4.5 que oferece
-       gerar os arquivos acadêmicos extras (references.md, methodology.md,
-       key-findings.md, research-gaps.md)
-    
-    Detecção de artigo científico:
-    - Procura por seções típicas: Abstract, Introduction, Methods, Results,
-      Discussion, References (em inglês e português)
-    - Requer pelo menos 3 seções acadêmicas para confirmar como artigo
-    - Funciona mesmo quando o PDF extrai as seções sem formatação especial
+    """Detecta capítulos e sumário no documento.
+
+    Mantido igual ao original do book-to-skill — simples e robusto.
+    O Claude Code (SKILL.md) faz a análise estrutural real do conteúdo.
+    Este script só fornece dicas básicas para o SKILL.md orientar o Claude.
     """
     lines = text[:50000].splitlines()
 
-    # ── Detecta headings de capítulos (formato livro) ──
+    # Detecta headings de capítulos no formato livro
+    # Ex: "Chapter 1", "1. Introduction", "CHAPTER 2"
     chapter_pattern = re.compile(
         r"^\s*(chapter\s+\d+|CHAPTER\s+\d+|ch\.\s*\d+|\d+\.\s+[A-Z])",
         re.IGNORECASE
     )
     chapters_found = [l.strip() for l in lines if chapter_pattern.match(l)]
 
-    # ── Detecta sumário (Table of Contents) ──
+    # Detecta sumário (Table of Contents)
     # Exige que a palavra apareça sozinha na linha para evitar falsos positivos
     toc_pattern = re.compile(
         r"^\s*(?:table of contents|contents|índice|sumário)\s*$",
@@ -851,24 +681,10 @@ def detect_structure(text: str) -> dict:
     )
     has_toc = bool(toc_pattern.search(text[:30000]))
 
-    # ── Detecta seções típicas de artigos científicos ──
-    # Verifica nas primeiras 50k chars — seções aparecem cedo no documento
-    academic_sections_found = []
-    for pattern_str in ACADEMIC_SECTION_PATTERNS:
-        pattern = re.compile(pattern_str, re.IGNORECASE | re.MULTILINE)
-        if pattern.search(text[:50000]):
-            academic_sections_found.append(pattern_str)
-
-    # Considera artigo científico se encontrar pelo menos 3 seções acadêmicas
-    # (evita falsos positivos com livros que mencionam "introduction" no texto)
-    is_academic_paper = len(academic_sections_found) >= 3
-
     return {
         "chapters_detected": len(chapters_found),
         "chapter_headings_sample": chapters_found[:10],
         "has_toc": has_toc,
-        "is_academic_paper": is_academic_paper,          # Novo: usado pelo SKILL.md para IS_PAPER
-        "academic_sections_found": len(academic_sections_found),  # Número de seções detectadas
     }
 
 
@@ -876,9 +692,9 @@ def detect_structure(text: str) -> dict:
 
 def main():
     """Ponto de entrada do script.
-    
-    Uso: extract.py <caminho-do-documento> [--mode technical|text] [--install-missing ask|yes|no]
-    
+
+    Uso: extract.py <caminho> [--mode technical|text] [--install-missing ask|yes|no]
+
     Exemplos:
       python3 extract.py artigo.pdf
       python3 extract.py artigo.pdf --mode technical
@@ -909,18 +725,15 @@ def main():
     ext = input_file.suffix.lower()
     document_format = ext.lstrip(".")
 
-    # ── Detecção por magic bytes ──
-    # Se a extensão não for reconhecida, tenta identificar o formato pelos
-    # primeiros bytes do arquivo (mais confiável que a extensão)
+    # Detecção por magic bytes para arquivos sem extensão reconhecida
+    # PDF começa com "%PDF", EPUB e DOCX são ZIPs (começam com "PK")
     if ext not in SUPPORTED_EXTENSIONS:
         with open(input_path, "rb") as f:
             header = f.read(8)
         if header[:4] == b"%PDF":
-            # Assinatura de PDF: começa com "%PDF"
             ext = ".pdf"
             document_format = "pdf"
         elif header[:2] == b"PK":
-            # Assinatura de ZIP: tanto EPUB quanto DOCX são ZIPs
             try:
                 with zipfile.ZipFile(input_path) as zf:
                     names = set(zf.namelist())
@@ -938,7 +751,7 @@ def main():
                         sys.exit(1)
             except (zipfile.BadZipFile, KeyError, OSError):
                 print(
-                    f"ERRO: Formato ZIP inválido '{input_file.name}'. Suportados: {supported_formats_message()}",
+                    f"ERRO: ZIP inválido '{input_file.name}'. Suportados: {supported_formats_message()}",
                     file=sys.stderr,
                 )
                 sys.exit(1)
@@ -949,16 +762,15 @@ def main():
             )
             sys.exit(1)
 
-    # Cria o diretório de saída e verifica dependências
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     prepare_dependencies(ext, extraction_mode, install_mode)
 
-    # MOBI/AZW requerem o Calibre instalado no sistema (não via pip)
+    # MOBI/AZW requerem Calibre instalado no sistema (não via pip)
     if ext in CALIBRE_EBOOK_EXTENSIONS and not shutil.which("ebook-convert"):
         print(
-            "ERRO: Extração de MOBI/AZW/AZW3 requer o comando ebook-convert do Calibre. "
-            "Instale o Calibre em https://calibre-ebook.com/download e garanta que "
-            "ebook-convert esteja no PATH, depois execute novamente.",
+            "ERRO: MOBI/AZW/AZW3 requer o Calibre. "
+            "Instale em https://calibre-ebook.com/download e garanta que "
+            "ebook-convert esteja no PATH.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -973,7 +785,7 @@ def main():
     elif ext == ".pdf":
         print(f"Extraindo PDF: {input_path}")
         if extraction_mode == "technical":
-            # Modo técnico: tenta Docling primeiro (preserva tabelas como markdown)
+            # Modo técnico: Docling preserva tabelas e fórmulas como markdown
             print("Modo: técnico — usando Docling (reconhecimento de layout)...", end=" ", flush=True)
             text = extract_with_docling(input_path)
             if text:
@@ -989,7 +801,6 @@ def main():
             print("Modo: texto — usando pdftotext...")
             print("Tentando pdftotext...", end=" ", flush=True)
             text = extract_with_pdftotext(input_path)
-
             if text:
                 method = "pdftotext"
                 print("OK")
@@ -1012,13 +823,12 @@ def main():
                         print(
                             "\nERRO: Não foi possível extrair texto do PDF.\n"
                             "Instale uma das opções abaixo:\n"
-                            "  sudo apt install poppler-utils  (recomendado para WSL/Linux)\n"
+                            "  sudo apt install poppler-utils  (recomendado)\n"
                             "  pip3 install PyPDF2\n"
                             "  pip3 install pdfminer.six",
                             file=sys.stderr,
                         )
                         sys.exit(1)
-
         pages = count_pages(input_path)
         pages_label = "pages"
 
@@ -1083,9 +893,8 @@ def main():
     file_size_mb = os.path.getsize(input_path) / (1024 * 1024)
 
     # metadata.json é lido pelo SKILL.md para:
-    # - Mostrar a estimativa de custo (estimated_tokens)
-    # - Ativar IS_PAPER no fluxo acadêmico (is_academic_paper)
-    # - Informar o número de páginas/seções
+    # - estimated_tokens → estimativa de custo
+    # - chapters_detected / has_toc → orientar o Claude na análise de estrutura
     metadata = {
         "source_file": str(Path(input_path).resolve()),
         "filename": Path(input_path).name,
@@ -1099,7 +908,7 @@ def main():
         "estimated_tokens": tokens,
         "estimated_tokens_human": f"~{tokens // 1000}K",
         "output_text": str(OUTPUT_TEXT),
-        **structure,  # Inclui chapters_detected, has_toc, is_academic_paper, academic_sections_found
+        **structure,
     }
 
     OUTPUT_META.write_text(json.dumps(metadata, indent=2, ensure_ascii=False))
@@ -1112,30 +921,18 @@ def main():
     }.get(pages_label, pages_label.replace("_", " ").title())
 
     print("\nExtração concluída:")
-    print(f"   Formato        : {document_format.upper()}")
-    print(f"   Método         : {method}")
-    print(f"   {page_label:14}: {pages}")
-    print(f"   Palavras       : {len(text.split()):,}")
-    print(f"   Tokens (~)     : ~{tokens // 1000}K")
-    print(f"   Seções acad.   : {structure['academic_sections_found']} detectadas")
-    print(f"   Artigo cient.  : {'sim ✓' if structure['is_academic_paper'] else 'não detectado'}")
-    print(f"   Capítulos      : {structure['chapters_detected']} detectados")
-    print(f"   Sumário (ToC)  : {'sim' if structure['has_toc'] else 'não detectado'}")
-
-    if structure['is_academic_paper']:
+    print(f"   Formato   : {document_format.upper()}")
+    print(f"   Método    : {method}")
+    print(f"   {page_label:12}: {pages}")
+    print(f"   Palavras  : {len(text.split()):,}")
+    print(f"   Tokens ~  : ~{tokens // 1000}K")
+    print(f"   Capítulos : {structure['chapters_detected']} detectados")
+    print(f"   Sumário   : {'sim' if structure['has_toc'] else 'não detectado'}")
+    if not structure["has_toc"]:
         print(
-            "   INFO           : Artigo científico detectado — o SKILL.md irá oferecer\n"
-            "                    gerar references.md, methodology.md, key-findings.md\n"
-            "                    e research-gaps.md durante a conversão."
+            "   AVISO     : Sem sumário — o Claude mapeará seções por varredura de headings."
         )
-    elif not structure["has_toc"]:
-        print(
-            "   AVISO          : Sem sumário detectado — o mapeamento de capítulos\n"
-            "                    no Passo 3 usará apenas a varredura de headings,\n"
-            "                    o que pode perder ou duplicar algumas seções."
-        )
-
-    print(f"\n   Texto  → {OUTPUT_TEXT}")
+    print(f"\n   Texto     → {OUTPUT_TEXT}")
     print(f"   Metadados → {OUTPUT_META}")
 
 
