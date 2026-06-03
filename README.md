@@ -118,6 +118,27 @@ O extrator tenta ferramentas na ordem por formato e usa a primeira disponível.
 
 > Antes da extração, a skill pergunta se o documento é **técnico** ou **texto corrido** e escolhe a ferramenta automaticamente.
 
+ℹ️ **pdftotext vs Docling — qual usar?**
+
+O academic-to-skill suporta ambos, mas **recomendamos pdftotext para a maioria dos casos**, especialmente artigos científicos.
+
+**pdftotext** (`sudo apt install poppler-utils`)
+- Extrai texto em segundos
+- Preserva o layout com a flag `-layout`
+- Suficiente para artigos acadêmicos — o Claude lê e interpreta o texto independente do formato das tabelas
+- Desvantagem: tabelas saem como texto simples, não como markdown estruturado
+
+**Docling** (`pip3 install docling`)
+- Reconhecimento de layout com IA — preserva tabelas como markdown e fórmulas como texto
+- Desvantagem: instala um ecossistema completo de machine learning (~500 MB ou mais), incluindo PyTorch, torchvision, transformers, drivers CUDA, OpenCV e scipy. Leva vários minutos na primeira execução para baixar modelos
+- Velocidade: ~1,5s por página (um artigo de 24 páginas leva ~36s só de extração)
+
+**Use Docling apenas se:**
+- O artigo tem tabelas de resultados complexas que você precisa consultar estruturadas
+- E o pdftotext não consegue extrair essas tabelas de forma legível
+
+> Para a maioria dos artigos acadêmicos, o pdftotext é a escolha certa.
+
 **EPUB:**
 
 | Ferramenta | Instalar | Qualidade |
@@ -156,11 +177,10 @@ scripts/extract.py --mode <technical|text>
      └── /tmp/book_skill_work/metadata.json
                │
                ▼
-          Claude analisa estrutura
-          (título, autor, seções)
-          Detecta se é artigo científico (IS_PAPER)
+          Claude lê o texto e analisa a estrutura
+          (título, autor, seções, tipo de documento)
                │
-               ▼  (se IS_PAPER=true — ANTES da estimativa de custo)
+               ▼
           Pergunta quais arquivos acadêmicos gerar:
           references.md / methodology.md /
           key-findings.md / research-gaps.md
@@ -203,8 +223,14 @@ cp academic-to-skill/SKILL.md ~/.claude/skills/academic-to-skill/SKILL.md
 cp academic-to-skill/scripts/extract.py ~/.claude/skills/academic-to-skill/scripts/extract.py
 ```
 
-### 3. Instalar dependências mínimas para PDF
+### 3. Instalar dependências para PDF
 
+**Recomendado** — pdftotext (rápido, sem dependências pesadas):
+```bash
+sudo apt install poppler-utils
+```
+
+**Fallback** — PyPDF2 (quando pdftotext não está disponível):
 ```bash
 pip3 install PyPDF2
 ```
