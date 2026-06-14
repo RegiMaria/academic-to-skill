@@ -223,8 +223,9 @@ Este passo ocorre ANTES da estimativa de custo para que o total reflita os arqui
 > 2. **methodology.md** — dataset, métricas, baseline, configuração experimental e checklist de replicação
 > 3. **key-findings.md** — resultados principais com números e evidências, prontos para citar em revisão de literatura
 > 4. **research-gaps.md** — lacunas e trabalhos futuros apontados pelos próprios autores
-> 5. **Todos os anteriores** (recomendado — custo adicional estimado: ~$0,05–0,15 USD)
-> 6. **Nenhum** — pular esta etapa"
+> 5. **replication-checklist.md** — checklist operacional, standalone, para reproduzir os experimentos (dataset, modelo, hiperparâmetros, prompts, métricas)
+> 6. **Todos os anteriores** (recomendado — custo adicional estimado: ~$0,06–0,18 USD)
+> 7. **Nenhum** — pular esta etapa"
 
 Armazenar seleção como `ACADEMIC_FILES`. Aguardar resposta antes de prosseguir.
 
