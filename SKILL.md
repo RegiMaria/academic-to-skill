@@ -1,6 +1,6 @@
 ---
 name: academic-to-skill
-description: "Converte artigos científicos, livros e documentos técnicos (PDF, EPUB, DOCX, HTML, Markdown, texto simples, RTF, MOBI/AZW com Calibre) em skills estruturadas e reutilizáveis para agentes de IA. Use quando quiser estudar um documento pelo Claude Code, aplicar os frameworks do autor enquanto trabalha, ou construir uma base de conhecimento reutilizável a partir de um arquivo. Versão acadêmica com suporte a references.md, methodology.md, key-findings.md e research-gaps.md."
+description: "Converte artigos científicos, livros e documentos técnicos (PDF, EPUB, DOCX, HTML, Markdown, texto simples, RTF, MOBI/AZW com Calibre) em skills estruturadas e reutilizáveis para agentes de IA. Use quando quiser estudar um documento pelo Claude Code, aplicar os frameworks do autor enquanto trabalha, ou construir uma base de conhecimento reutilizável a partir de um arquivo. Versão acadêmica com suporte a references.md, methodology.md, key-findings.md e research-gaps.md e replication-checklist.md."
 compatibility: "Diretórios de skill do Claude Code (~/.claude/skills) e do Amp (.agents/skills, ~/.config/agents/skills, ~/.config/amp/skills)."
 allowed-tools:
   - shell_command
@@ -223,8 +223,9 @@ Este passo ocorre ANTES da estimativa de custo para que o total reflita os arqui
 > 2. **methodology.md** — dataset, métricas, baseline, configuração experimental e checklist de replicação
 > 3. **key-findings.md** — resultados principais com números e evidências, prontos para citar em revisão de literatura
 > 4. **research-gaps.md** — lacunas e trabalhos futuros apontados pelos próprios autores
-> 5. **Todos os anteriores** (recomendado — custo adicional estimado: ~$0,05–0,15 USD)
-> 6. **Nenhum** — pular esta etapa"
+> 5. **replication-checklist.md** — checklist operacional, standalone, para reproduzir os experimentos (dataset, modelo, hiperparâmetros, prompts, métricas)
+> 6. **Todos os anteriores** (recomendado — custo adicional estimado: ~$0,06–0,18 USD)
+> 7. **Nenhum** — pular esta etapa"
 
 Armazenar seleção como `ACADEMIC_FILES`. Aguardar resposta antes de prosseguir.
 
@@ -260,10 +261,11 @@ Ler `<tempdir>/book_skill_work/metadata.json` e apresentar ao usuário:
 **Como estimar:**
 - Tokens de entrada ≈ `estimated_tokens` × 1,3 (overhead de prompts)
 - Tokens de saída base ≈ seções × 1.000 + 4.000 (SKILL.md) + 4.500 (glossary + patterns + cheatsheet)
-- Tokens de saída acadêmicos ≈ 800 por arquivo selecionado
+- Tokens de saída acadêmicos ≈ 800 por arquivo selecionado (references.md, methodology.md, key-findings.md, research-gaps.md), ≈ 600 para replication-checklist.md (formato mais compacto, sem prosa)
 - Preço: Sonnet entrada=$3/MTok saída=$15/MTok — Haiku entrada=$0,80/MTok saída=$4/MTok
 
 Aguardar confirmação do usuário antes de prosseguir.
+
 
 ---
 
@@ -548,6 +550,81 @@ a partir do texto, mesmo que não declaradas explicitamente pelos autores>
 <3–5 direções concretas que um pesquisador poderia explorar
 a partir das lacunas deste artigo — escritas como perguntas de pesquisa>
 ```
+### replication-checklist.md (se selecionado)
+
+Criar `$SKILLS_HOME/<skill_name>/replication-checklist.md`.
+
+**Diferença em relação ao checklist em `methodology.md`:** este arquivo é
+**standalone** — apenas a lista de tarefas, sem prosa, pronto para abrir e
+marcar item por item. É mais granular e operacional que o resumo de alto
+nível dentro de `methodology.md`. Não copiar o conteúdo de um para o outro.
+
+**Como gerar — seguir esta ordem:**
+1. Para cada seção do checklist (Dados, Modelo, Hardware, Hiperparâmetros, Prompts, Execução, Métricas, Software), buscar informações explícitas no `full_text.txt`
+2. **Prompts**: preservar estrutura e placeholders (ex: `[DOCUMENT]`), mas NUNCA citar mais de 15 palavras literais consecutivas — parafrasear preservando o significado operacional
+3. Se uma informação não estiver no artigo, marcar explicitamente como "Não informado no artigo" — NUNCA inventar valores
+4. Ao final, listar em "Itens Não Especificados no Artigo" tudo que ficou sem preenchimento — isso é tão útil quanto o que foi encontrado
+5. Formato: cada item é uma linha `- [ ] ` — sem prosa explicativa entre os itens, apenas o necessário para identificar o que fazer
+
+```markdown
+# Checklist de Replicação — <Título do Artigo>
+
+> Gerado em português. Checklist operacional para reproduzir os experimentos
+> descritos no artigo. Marque cada item conforme avança.
+
+## Dados
+
+- [ ] Dataset: <nome> — <link/fonte, se disponível no texto>
+- [ ] Tamanho: <N amostras/registros>
+- [ ] Pré-processamento necessário: <se descrito>
+- [ ] Split treino/teste/validação: <se aplicável>
+
+## Modelo(s)
+
+- [ ] Modelo: <nome + versão exata, ex: GPT-4o, Mixtral 8x22B>
+- [ ] Acesso: <API / pesos locais / framework usado>
+- [ ] Baseline(s) de comparação: <se houver>
+
+## Hardware
+
+- [ ] <especificação de hardware, se mencionada — GPUs, VRAM, etc.>
+- [ ] <se não especificado: "Não informado no artigo">
+
+## Hiperparâmetros
+
+- [ ] Temperature: <valor(es)>
+- [ ] Top-p: <valor>
+- [ ] Top-k: <valor, se aplicável>
+- [ ] Seed: <valor ou "não fixado / em beta", se mencionado>
+- [ ] <outros hiperparâmetros relevantes mencionados>
+
+## Prompts
+
+- [ ] Prompt 1: <paráfrase do prompt — preservar estrutura e placeholders como [DOCUMENT]>
+- [ ] Prompt 2: <se houver mais de um>
+
+## Execução
+
+- [ ] Número de execuções/repetições: <N>
+- [ ] Ordem ou randomização: <se especificado>
+
+## Métricas
+
+- [ ] Métrica 1: <nome> — <como calcular, em uma frase>
+- [ ] Métrica 2: <...>
+
+## Software / Bibliotecas
+
+- [ ] <nome + versão, se mencionado no artigo — ex: llama.cpp, biblioteca X>
+- [ ] <se não especificado: "Versões não informadas no artigo">
+
+## Itens Não Especificados no Artigo
+
+Lista de itens acima que o artigo não detalha — o pesquisador precisará
+decidir ou buscar em trabalhos relacionados:
+- <item 1>
+- <item 2>
+```
 
 ---
 
@@ -606,6 +683,8 @@ argument-hint: [tópico, nome do framework, ou número da seção]
 - [methodology.md](methodology.md) — dataset, métricas e configuração experimental
 - [key-findings.md](key-findings.md) — resultados com evidências numéricas
 - [research-gaps.md](research-gaps.md) — lacunas e trabalhos futuros
+- [replication-checklist.md](replication-checklist.md) — checklist operacional para reproduzir os experimentos
+
 
 ---
 
@@ -614,6 +693,7 @@ argument-hint: [tópico, nome do framework, ou número da seção]
 Esta skill cobre apenas o conteúdo do documento fornecido.
 Para tópicos além deste documento, consulte skills relacionadas ou pergunte ao agente diretamente.
 ```
+> Incluir no índice "Arquivos Acadêmicos" apenas os links dos arquivos que foram efetivamente selecionados e gerados no Passo 4.5. Não listar arquivos não gerados.
 
 ---
 
@@ -651,10 +731,11 @@ Arquivos gerados:
   cheatsheet.md      — referência rápida                (~X tokens)
 
 Arquivos acadêmicos:
-  references.md      — 20 referências mais citadas      (~X tokens)  [se gerado]
-  methodology.md     — dataset e configuração           (~X tokens)  [se gerado]
-  key-findings.md    — resultados com números           (~X tokens)  [se gerado]
-  research-gaps.md   — lacunas e trabalhos futuros      (~X tokens)  [se gerado]
+  references.md            — 20 referências mais citadas      (~X tokens)  [se gerado]
+  methodology.md           — dataset e configuração           (~X tokens)  [se gerado]
+  key-findings.md          — resultados com números           (~X tokens)  [se gerado]
+  research-gaps.md         — lacunas e trabalhos futuros      (~X tokens)  [se gerado]
+  replication-checklist.md — checklist operacional            (~X tokens)  [se gerado]
   ─────────────────────────────────────────────────────────────────
   Total: ~X tokens (carregados sob demanda, não todos de uma vez)
 
@@ -665,6 +746,7 @@ Como usar:
   /<skill_name> metodologia        → ver configuração experimental
   /<skill_name> descobertas        → ver resultados principais
   /<skill_name> referencias        → consultar mapa de referências
+  /<skill_name> checklist          → consultar checklist de replicação
 ```
 
 ---
@@ -683,3 +765,4 @@ Como usar:
 10. **Contexto de citações baseado no texto real** — no references.md, o contexto de uso deve vir das passagens reais onde a citação aparece, nunca de inferências gerais sobre o paper citado
 11. **Template correto por tipo de documento** — usar template de artigo científico quando IS_PAPER=true; template de livro técnico quando IS_PAPER=false
 12. **Estimativa de custo após seleção de arquivos** — o Passo 5 sempre reflete os arquivos acadêmicos já selecionados no Passo 4.5
+13. **Checklists não duplicam conteúdo** — o checklist em `methodology.md` (resumo) e `replication-checklist.md` (operacional, standalone) não devem ser copy-paste um do outro
