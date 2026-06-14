@@ -550,6 +550,81 @@ a partir do texto, mesmo que não declaradas explicitamente pelos autores>
 <3–5 direções concretas que um pesquisador poderia explorar
 a partir das lacunas deste artigo — escritas como perguntas de pesquisa>
 ```
+### replication-checklist.md (se selecionado)
+
+Criar `$SKILLS_HOME/<skill_name>/replication-checklist.md`.
+
+**Diferença em relação ao checklist em `methodology.md`:** este arquivo é
+**standalone** — apenas a lista de tarefas, sem prosa, pronto para abrir e
+marcar item por item. É mais granular e operacional que o resumo de alto
+nível dentro de `methodology.md`. Não copiar o conteúdo de um para o outro.
+
+**Como gerar — seguir esta ordem:**
+1. Para cada seção do checklist (Dados, Modelo, Hardware, Hiperparâmetros, Prompts, Execução, Métricas, Software), buscar informações explícitas no `full_text.txt`
+2. **Prompts**: preservar estrutura e placeholders (ex: `[DOCUMENT]`), mas NUNCA citar mais de 15 palavras literais consecutivas — parafrasear preservando o significado operacional
+3. Se uma informação não estiver no artigo, marcar explicitamente como "Não informado no artigo" — NUNCA inventar valores
+4. Ao final, listar em "Itens Não Especificados no Artigo" tudo que ficou sem preenchimento — isso é tão útil quanto o que foi encontrado
+5. Formato: cada item é uma linha `- [ ] ` — sem prosa explicativa entre os itens, apenas o necessário para identificar o que fazer
+
+```markdown
+# Checklist de Replicação — <Título do Artigo>
+
+> Gerado em português. Checklist operacional para reproduzir os experimentos
+> descritos no artigo. Marque cada item conforme avança.
+
+## Dados
+
+- [ ] Dataset: <nome> — <link/fonte, se disponível no texto>
+- [ ] Tamanho: <N amostras/registros>
+- [ ] Pré-processamento necessário: <se descrito>
+- [ ] Split treino/teste/validação: <se aplicável>
+
+## Modelo(s)
+
+- [ ] Modelo: <nome + versão exata, ex: GPT-4o, Mixtral 8x22B>
+- [ ] Acesso: <API / pesos locais / framework usado>
+- [ ] Baseline(s) de comparação: <se houver>
+
+## Hardware
+
+- [ ] <especificação de hardware, se mencionada — GPUs, VRAM, etc.>
+- [ ] <se não especificado: "Não informado no artigo">
+
+## Hiperparâmetros
+
+- [ ] Temperature: <valor(es)>
+- [ ] Top-p: <valor>
+- [ ] Top-k: <valor, se aplicável>
+- [ ] Seed: <valor ou "não fixado / em beta", se mencionado>
+- [ ] <outros hiperparâmetros relevantes mencionados>
+
+## Prompts
+
+- [ ] Prompt 1: <paráfrase do prompt — preservar estrutura e placeholders como [DOCUMENT]>
+- [ ] Prompt 2: <se houver mais de um>
+
+## Execução
+
+- [ ] Número de execuções/repetições: <N>
+- [ ] Ordem ou randomização: <se especificado>
+
+## Métricas
+
+- [ ] Métrica 1: <nome> — <como calcular, em uma frase>
+- [ ] Métrica 2: <...>
+
+## Software / Bibliotecas
+
+- [ ] <nome + versão, se mencionado no artigo — ex: llama.cpp, biblioteca X>
+- [ ] <se não especificado: "Versões não informadas no artigo">
+
+## Itens Não Especificados no Artigo
+
+Lista de itens acima que o artigo não detalha — o pesquisador precisará
+decidir ou buscar em trabalhos relacionados:
+- <item 1>
+- <item 2>
+```
 
 ---
 
