@@ -1,6 +1,6 @@
 ---
 name: academic-to-skill
-description: "Converte artigos científicos, livros e documentos técnicos (PDF, EPUB, DOCX, HTML, Markdown, texto simples, RTF, MOBI/AZW com Calibre) em skills estruturadas e reutilizáveis para agentes de IA. Use quando quiser estudar um documento pelo Claude Code, aplicar os frameworks do autor enquanto trabalha, ou construir uma base de conhecimento reutilizável a partir de um arquivo. Versão acadêmica com suporte a references.md, methodology.md, key-findings.md e research-gaps.md."
+description: "Converte artigos científicos, livros e documentos técnicos (PDF, EPUB, DOCX, HTML, Markdown, texto simples, RTF, MOBI/AZW com Calibre) em skills estruturadas e reutilizáveis para agentes de IA. Use quando quiser estudar um documento pelo Claude Code, aplicar os frameworks do autor enquanto trabalha, ou construir uma base de conhecimento reutilizável a partir de um arquivo. Versão acadêmica com suporte a references.md, methodology.md, key-findings.md e research-gaps.md e replication-checklist.md."
 compatibility: "Diretórios de skill do Claude Code (~/.claude/skills) e do Amp (.agents/skills, ~/.config/agents/skills, ~/.config/amp/skills)."
 allowed-tools:
   - shell_command
