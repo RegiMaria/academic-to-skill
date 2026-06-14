@@ -261,10 +261,11 @@ Ler `<tempdir>/book_skill_work/metadata.json` e apresentar ao usuário:
 **Como estimar:**
 - Tokens de entrada ≈ `estimated_tokens` × 1,3 (overhead de prompts)
 - Tokens de saída base ≈ seções × 1.000 + 4.000 (SKILL.md) + 4.500 (glossary + patterns + cheatsheet)
-- Tokens de saída acadêmicos ≈ 800 por arquivo selecionado
+- Tokens de saída acadêmicos ≈ 800 por arquivo selecionado (references.md, methodology.md, key-findings.md, research-gaps.md), ≈ 600 para replication-checklist.md (formato mais compacto, sem prosa)
 - Preço: Sonnet entrada=$3/MTok saída=$15/MTok — Haiku entrada=$0,80/MTok saída=$4/MTok
 
 Aguardar confirmação do usuário antes de prosseguir.
+
 
 ---
 
