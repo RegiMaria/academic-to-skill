@@ -683,6 +683,8 @@ argument-hint: [tópico, nome do framework, ou número da seção]
 - [methodology.md](methodology.md) — dataset, métricas e configuração experimental
 - [key-findings.md](key-findings.md) — resultados com evidências numéricas
 - [research-gaps.md](research-gaps.md) — lacunas e trabalhos futuros
+- [replication-checklist.md](replication-checklist.md) — checklist operacional para reproduzir os experimentos
+
 
 ---
 
@@ -691,6 +693,7 @@ argument-hint: [tópico, nome do framework, ou número da seção]
 Esta skill cobre apenas o conteúdo do documento fornecido.
 Para tópicos além deste documento, consulte skills relacionadas ou pergunte ao agente diretamente.
 ```
+> Incluir no índice "Arquivos Acadêmicos" apenas os links dos arquivos que foram efetivamente selecionados e gerados no Passo 4.5. Não listar arquivos não gerados.
 
 ---
 
@@ -728,10 +731,11 @@ Arquivos gerados:
   cheatsheet.md      — referência rápida                (~X tokens)
 
 Arquivos acadêmicos:
-  references.md      — 20 referências mais citadas      (~X tokens)  [se gerado]
-  methodology.md     — dataset e configuração           (~X tokens)  [se gerado]
-  key-findings.md    — resultados com números           (~X tokens)  [se gerado]
-  research-gaps.md   — lacunas e trabalhos futuros      (~X tokens)  [se gerado]
+  references.md            — 20 referências mais citadas      (~X tokens)  [se gerado]
+  methodology.md           — dataset e configuração           (~X tokens)  [se gerado]
+  key-findings.md          — resultados com números           (~X tokens)  [se gerado]
+  research-gaps.md         — lacunas e trabalhos futuros      (~X tokens)  [se gerado]
+  replication-checklist.md — checklist operacional            (~X tokens)  [se gerado]
   ─────────────────────────────────────────────────────────────────
   Total: ~X tokens (carregados sob demanda, não todos de uma vez)
 
@@ -742,6 +746,7 @@ Como usar:
   /<skill_name> metodologia        → ver configuração experimental
   /<skill_name> descobertas        → ver resultados principais
   /<skill_name> referencias        → consultar mapa de referências
+  /<skill_name> checklist          → consultar checklist de replicação
 ```
 
 ---
