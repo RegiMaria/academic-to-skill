@@ -765,3 +765,4 @@ Como usar:
 10. **Contexto de citações baseado no texto real** — no references.md, o contexto de uso deve vir das passagens reais onde a citação aparece, nunca de inferências gerais sobre o paper citado
 11. **Template correto por tipo de documento** — usar template de artigo científico quando IS_PAPER=true; template de livro técnico quando IS_PAPER=false
 12. **Estimativa de custo após seleção de arquivos** — o Passo 5 sempre reflete os arquivos acadêmicos já selecionados no Passo 4.5
+13. **Checklists não duplicam conteúdo** — o checklist em `methodology.md` (resumo) e `replication-checklist.md` (operacional, standalone) não devem ser copy-paste um do outro
